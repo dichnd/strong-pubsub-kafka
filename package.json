@@ -1,0 +1,26 @@
+{
+  "name": "strong-pubsub-kafka",
+  "version": "1.0.0",
+  "description": "Adapter to connect with kafka broker",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dichnd/strong-pubsub-kafka.git"
+  },
+  "keywords": [
+    "strong-pubsub",
+    "kafka"
+  ],
+  "author": "dichnd",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/dichnd/strong-pubsub-kafka/issues"
+  },
+  "homepage": "https://github.com/dichnd/strong-pubsub-kafka#readme",
+  "dependencies": {
+    "kafka-node": "^1.4.0"
+  }
+}
