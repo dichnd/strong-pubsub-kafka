@@ -4,14 +4,14 @@
 module.exports = Adapter;
 
 var kafka = require('kafka-node');
-var ConsumerGroup = kafka.ConsumerGroup;
-var Consumer = kafka.Consumer;
 var Client = kafka.Client;
-var Producer = kafka.Producer;
+var ConsumerGroup = kafka.ConsumerGroup;
+var Producer = kafka.HighLevelProducer;
 var EventEmitter = require('events').EventEmitter;
 var inherits = require('util').inherits;
 var debug = require('debug')('strong-pubsub:mqtt');
 var defaults = require('lodash').defaults;
+var uid = require('uid-safe').sync;
 
 function noop() {};
 
@@ -28,9 +28,8 @@ function noop() {};
  */
 
 function Adapter(client) {
-    var adapter = this;
     this.client = client;
-    var options = this.options = client.options;
+    this.options = client.options;
     this.consumerId = this.options.id || 'consumer1';
 
     this.transport = client.transport;
@@ -40,75 +39,28 @@ inherits(Adapter, EventEmitter);
 
 Adapter.prototype.connect = function(cb) {
     var self = this;
-    var adapter = this;
     var client = this.client;
     var options = this.options;
-    var transport = this.transport || require('net');
-    var firstConnection;
-    var timer;
-    var topics = this.options.topics || ['topic1', 'topic2'];
 
     this.kafkaClient = new Client(options.host + ':' + options.port);
 
     debug('connect');
 
-    this.producer = new Producer(this.kafkaClient, { requireAcks: options.ack || 1});
+    this.producer = new Producer(this.kafkaClient, {
+        requireAcks: options.requireAcks || 1,
+        ackTimeoutMs: options.ackTimeoutMs || 100,
+        partitionerType: options.partitionerType || 3
+    });
     this.producer.on('ready', function () {
         self.ready = true;
-        client.emit('ready')
+        client.emit('ready');
+        cb(null);
     })
     this.producer.on('error', function (error) {
         self.ready = false;
         client.emit('error', error)
+        cb(error);
     })
-
-
-
-
-
-
-
-
-    //
-    // this.mqttClient = new MqttClient(function(mqttClient) {
-    //     debug('mqtt client creating new connection');
-    //     var connection = transport.createConnection(options.port, options.host, options);
-    //     if(!firstConnection) {
-    //         firstConnection = connection
-    //     }
-    //     return connection;
-    // }, options.mqtt);
-    //
-    // this.mqttClient.on('message', function(topic, message, packet) {
-    //     client.emit('message', topic, message, {
-    //         qos: packet.qos || 0,
-    //         retain: packet.retain || false
-    //     });
-    // });
-    //
-    // firstConnection.once('connect', done);
-    // firstConnection.once('error', done);
-    //
-    // if(options.connectionTimeout) {
-    //     timer = setTimeout(function() {
-    //         cb(new Error('connection timeout after ' + options.connectionTimeout + 'ms'));
-    //         firstConnection.close();
-    //     }, options.connectionTimeout);
-    // }
-    //
-    // function done(err) {
-    //     debug('connect done');
-    //     if(err) {
-    //         debug('connect error %j', err);
-    //     }
-    //     adapter.emit('connect');
-    //     clearTimeout(timer);
-    //     cb(err);
-    // }
-}
-
-Adapter.prototype.end = function(cb) {
-    this.mqttClient.end(cb);
 }
 
 /**
@@ -142,6 +94,25 @@ Adapter.prototype.publish = function(topic, messages, options, cb) {
 }
 
 /**
+ * send multi message to multi topics
+ * @param payloads
+ * @param callback
+ */
+Adapter.prototype.send = function (payloads, callback) {
+    this.producer.send(payloads, callback);
+}
+
+/**
+ * request to create new topic on server
+ * @param topics
+ * @param async
+ * @param callback
+ */
+Adapter.prototype.createTopics = function (topics, async, callback) {
+    this.producer.createTopics(topics, async, callback);
+}
+
+/**
  * Subscribe to the specified `topic` or **topic pattern**.
  *
  * @param topics
@@ -157,17 +128,16 @@ Adapter.prototype.subscribe = function(topics, options, cb) {
     cb = cb || noop;
     options.qos = options.qos || 0;
 
-    if(typeof topics === 'object') {
-        Object.keys(topics).forEach(function(name) {
-            topics[name] = topics[name].qos || 0;
-        });
-    }
+    options.host = options.host || (self.options.host + ':' + self.options.port);
+    options.groupId = options.groupId || uid(5);
+    options.protocol = options.protocol || ['roundrobin'];
+    options.fromOffset = options.fromOffset || 'latest';
 
-    var consumerGroup = new ConsumerGroup(Object.assign({id: self.consumerId}, options), topics);
-    consumerGroup.on('error', function (error) {
+    self.consumerGroup = new ConsumerGroup(Object.assign({id: self.consumerId || uid(5)}, options), topics);
+    self.consumerGroup.on('error', function (error) {
         self.client.emit('error', error);
     })
-    consumerGroup.on('message', function (message) {
+    self.consumerGroup.on('message', function (message) {
         self.client.emit('message', message.topic, message);
     })
 }
@@ -182,5 +152,5 @@ Adapter.prototype.subscribe = function(topics, options, cb) {
 
 Adapter.prototype.unsubscribe = function(topic, cb) {
     cb = cb || noop;
-    this.mqttClient.unsubscribe(topic, cb);
+    this.consumerGroup.leaveGroup(cb);
 }
