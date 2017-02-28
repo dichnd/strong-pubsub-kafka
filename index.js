@@ -33,6 +33,19 @@ function Adapter(client) {
     this.consumerId = this.options.id || 'consumer1';
 
     this.transport = client.transport;
+
+    var MixinMethods = function () {}
+
+    var self = this;
+    MixinMethods.send = function (payloads, callback) {
+        self.send(payloads, callback);
+    }
+
+    MixinMethods.createTopics = function (topics, async, callback) {
+        self.createTopics(topics, async, callback);
+    }
+
+    this.MixinMethods = MixinMethods;
 }
 
 inherits(Adapter, EventEmitter);
