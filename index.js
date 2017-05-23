@@ -66,12 +66,20 @@ Adapter.prototype.connect = function(cb) {
     });
     this.producer.on('ready', function () {
         self.ready = true;
-        client.emit('ready');
-        cb(null);
+
+        if(options.topics) {
+            self.producer.createTopics(options.topics, false, function (error) {
+                self.emit('ready');
+                cb(null);
+            })
+        } else {
+            self.emit('ready');
+            cb(null);
+        }
     })
     this.producer.on('error', function (error) {
         self.ready = false;
-        client.emit('error', error)
+        self.emit('error', error)
         cb(error);
     })
 }
@@ -100,7 +108,8 @@ Adapter.prototype.publish = function(topic, messages, options, cb) {
     self.producer.send([{
         topic: topic,
         partition: options.partition || 0,
-        messages: messages
+        messages: messages,
+        key: options.key
     }], function (error, result) {
         cb(error, result);
     });
