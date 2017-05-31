@@ -1,6 +1,6 @@
 {
   "name": "strong-pubsub-kafka",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Adapter to connect with kafka broker",
   "main": "index.js",
   "scripts": {

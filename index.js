@@ -176,3 +176,11 @@ Adapter.prototype.unsubscribe = function(topic, cb) {
     cb = cb || noop;
     this.consumerGroup.leaveGroup(cb);
 }
+
+/**
+ *
+ * @return {boolean}
+ */
+Adapter.prototype.isConnected = function () {
+    return this.ready
+}
