@@ -160,7 +160,12 @@ Adapter.prototype.subscribe = function(topics, options, cb) {
         self.client.emit('error', error);
     })
     self.consumerGroup.on('message', function (message) {
-        self.client.emit('message', message.topic, message);
+        try {
+            var jsonMsg = JSON.parse(message.value);
+        } catch (e) {
+            jsonMsg = message.value
+        }
+        self.client.emit('message', message.topic, jsonMsg);
     })
 }
 
